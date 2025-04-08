@@ -360,13 +360,15 @@ execute_commands :: proc(state: ^State) {
 
 main :: proc() {
 
-    state := load_state()
+    state, err := load_state()
+    assert(err == .NONE)
 
     is_open := len(os.args) == 3 && os.args[1] == "open"
     if is_open || len(os.args) == 1 {
         if is_open {
             NOTES_PATH = os.args[2]
-            state = load_state()
+            state, err = load_state()
+            assert(err == .NONE)
         }
         fmt.println("notes version:", NOTES_VERSION)
         if len(state.projs) == 0 {

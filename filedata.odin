@@ -8,6 +8,7 @@ import "core:strings"
 /*
 nfile spec:
 
+[5]u8 magic
 u8 version
 u16 current_proj_len
 [current_proj_len]u8 current_proj
@@ -21,7 +22,7 @@ projects:
 	[n_title_len]u8 n_title
 */
 
-VERSION: u8 : 1
+VERSION: u8 : 2
 
 write_u16 :: proc(h: os.Handle, it: u16) {
     os.write_byte(h, auto_cast (it >> 8) & 0xFF)
@@ -44,6 +45,11 @@ save_state :: proc(s: State) {
         return
     }
 
+    os.write_byte(h, 'N')
+    os.write_byte(h, 'O')
+    os.write_byte(h, 'T')
+    os.write_byte(h, 'E')
+    os.write_byte(h, 'S')
     os.write_byte(h, VERSION)
     write_str(h, s.current_proj)
     write_u16(h, auto_cast len(s.projs))
@@ -80,39 +86,73 @@ create_or_use_appdata_path :: proc() -> string {
     return fmt.tprintf("{}\\global.nf", notes_path)
 }
 
+check_magic_and_version :: proc(data: []byte) -> (int, NotesError) {
+    // version 1 doesn't contain the magic
+    has_magic := data[0] == 'N' && data[1] == 'O' && data[2] == 'T' && data[3] == 'E' && data[4] == 'S'
+    if !has_magic && data[0] != 1 do return auto_cast data[0], .VX_NO_MAGIC
+    if !has_magic && data[0] == 1 do return 1, .NONE
+
+    if data[5] > VERSION do return -1, .INVALID_VERSION
+
+    return auto_cast data[5], .NONE
+}
+
 // :volatile(proj)
 // :volatile(notes)
 // :volatile(state)
-load_state :: proc() -> State {
+load_state_vx :: proc(data: []byte, version: int) -> (State, NotesError) {
+    load_version_v1 :: proc(data: []byte) -> State {
+        cursor: u32 = 0
+        s := State {
+            current_proj = read_str(data, &cursor),
+            projs        = make(map[string]Proj, context.temp_allocator),
+        }
+
+        n_p := read_u16(data, &cursor)
+        for _ in 0 ..< n_p {
+            p := Proj{}
+            p.notes = make([dynamic]Note, context.temp_allocator)
+            p.name = read_str(data, &cursor)
+            notes_l := read_u16(data, &cursor)
+            for _ in 0 ..< notes_l {
+                append(&p.notes, Note{read_str(data, &cursor)})
+            }
+            s.projs[p.name] = p
+        }
+        return s
+    }
+
+    load_version_v2 :: proc(data: []byte) -> State {
+        return load_version_v1(data)
+    }
+
+    switch version {
+    case 1:
+        return load_version_v1(data[1:]), .NONE
+    case 2:
+        return load_version_v2(data[6:]), .NONE
+    }
+
+    panic("Unreachable")
+}
+
+load_state :: proc() -> (State, NotesError) {
 
     np := NOTES_PATH
     if np == "" do np = create_or_use_appdata_path()
 
-    data, ok := os.read_entire_file(np, context.temp_allocator)
-    if !ok {
-        return state_init()
-    }
-
-    cursor: u32 = 0
-    assert(data[0] == VERSION, "version missmatch")
-    cursor += 1
-
-    s := State {
-        current_proj = read_str(data, &cursor),
-        projs        = make(map[string]Proj, context.temp_allocator),
-    }
-
-    n_p := read_u16(data, &cursor)
-    for _ in 0 ..< n_p {
-        p := Proj{}
-        p.notes = make([dynamic]Note, context.temp_allocator)
-        p.name = read_str(data, &cursor)
-        notes_l := read_u16(data, &cursor)
-        for _ in 0 ..< notes_l {
-            append(&p.notes, Note{read_str(data, &cursor)})
+    data: []byte
+    ok: bool
+    if data, ok = os.read_entire_file(np, context.temp_allocator); ok {
+        if version, err := check_magic_and_version(data); err == .NONE {
+            return load_state_vx(data, version)
+        } else {
+            fmt.panicf("{}, {}", err, version)
         }
-        s.projs[p.name] = p
+    } else {
+        // Start with clean state since the file wasn't found.
+        return state_init(), .FILE_NOT_FOUND
     }
 
-    return s
+    panic("Unreachable")
 }
