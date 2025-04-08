@@ -315,6 +315,7 @@ execute_commands :: proc(state: ^State) {
         fmt.println("    lsp: print all projects in global state. `notes lsp`.")
         fmt.println("      p: change the current working project to the specified one. `notes p test_project`.")
         fmt.println("     cp: print information about current working project in the global state. `notes cp`.")
+        fmt.println("   open: open the given notes file instead of global. `notes open <filepath>.nf`")
         fmt.println()
         fmt.println("INFO: Commands can be chained and they will be executed in order.")
         fmt.println("    > `notes p other_project add \"test note\" ls")
