@@ -7,7 +7,7 @@ import "core:os"
 import "core:strconv"
 import "core:strings"
 
-NOTES_VERSION :: 0.1
+NOTES_VERSION :: 0.2
 NOTES_PATH := #config(NOTES_PATH, "")
 
 // :volatile(note)
