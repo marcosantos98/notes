@@ -25,13 +25,21 @@ Proj :: struct {
 State :: struct {
     projs:        map[string]Proj,
     current_proj: string,
+
+    // transient
+    path:         string,
 }
 
 // :volatile(state)
-state_init :: proc() -> State {
-    return {current_proj = "", projs = make(map[string]Proj, context.temp_allocator)}
+state_init :: proc(path := "") -> State {
+    return {
+        current_proj = "",
+        projs = make(map[string]Proj, context.temp_allocator),
+        path = path if len(path) != 0 else nf_create_or_use_appdata_path(),
+    }
 }
 
+// TODO: move
 err_expect :: proc(parts: []string, n_args: int, msg: string, args: ..any, exact := false) -> bool {
     if (exact && len(parts) != n_args) || (!exact && len(parts) < n_args) {
         fmt.printfln(msg, ..args)
@@ -54,7 +62,7 @@ add_proj :: proc(state: ^State, name: string) {
         notes = make([dynamic]Note, context.temp_allocator),
     }
     state.projs[name] = p
-    save_state(state^)
+    nf_save(state^)
 }
 
 del_proj :: proc(state: ^State, name: string) -> bool {
@@ -66,7 +74,7 @@ del_proj :: proc(state: ^State, name: string) -> bool {
 
     if state.current_proj == name do state.current_proj = ""
     delete_key(&state.projs, name)
-    save_state(state^)
+    nf_save(state^)
     return true
 }
 
@@ -87,7 +95,7 @@ switch_proj :: proc(state: ^State, name: string) -> bool {
     }
 
     state.current_proj = name
-    save_state(state^)
+    nf_save(state^)
     return true
 }
 
@@ -115,7 +123,7 @@ rename_proj :: proc(state: ^State, old, new: string) -> bool {
     cpy := cpy_proj(state, old, new)
     delete_key(&state.projs, old)
     state.projs[strings.clone(new, context.temp_allocator)] = cpy
-    save_state(state^)
+    nf_save(state^)
     return true
 }
 // ;project
@@ -128,7 +136,7 @@ add_note :: proc(state: ^State, note: string) -> bool {
     }
     proj := &state.projs[state.current_proj]
     append(&proj.notes, Note{note})
-    save_state(state^)
+    nf_save(state^)
     return true
 }
 
@@ -147,7 +155,7 @@ rm_note :: proc(state: ^State, idx: string) -> bool {
     val, ok := strconv.parse_uint(idx)
     if ok && (val >= 0 && val < len(proj.notes)) {
         ordered_remove(&proj.notes, val)
-        save_state(state^)
+        nf_save(state^)
         return true
     } else {
         fmt.println("Given argument is not a valid index.")
@@ -255,7 +263,7 @@ interactive_mode :: proc(state: ^State) {
                         return true
                     }
                     np := NOTES_PATH
-                    if np == "" do np = create_or_use_appdata_path()
+                    if np == "" do np = nf_create_or_use_appdata_path()
                     copy_file(np, fmt.tprintf("{}.backup", np))
                 }
             case "h":
@@ -361,14 +369,15 @@ execute_commands :: proc(state: ^State) {
 
 main :: proc() {
 
-    state, err := load_state()
+    path := nf_create_or_use_appdata_path()
+    state, err := nf_load(path)
     assert(err == .NONE)
 
     is_open := len(os.args) == 3 && os.args[1] == "open"
     if is_open || len(os.args) == 1 {
         if is_open {
             NOTES_PATH = os.args[2]
-            state, err = load_state()
+            state, err = nf_load(NOTES_PATH)
             assert(err == .NONE)
         }
         fmt.println("notes version:", NOTES_VERSION)

@@ -7,8 +7,8 @@ import test "core:testing"
 T :: test.T
 
 state_with_test_proj :: proc() -> State {
-    s := state_init()
-    save_state(s)
+    s := state_init(NOTES_PATH)
+    nf_save(s)
     add_proj(&s, "test")
     return s
 }
@@ -171,7 +171,7 @@ test_save_load :: proc(t: ^T) {
     s := state_with_test_proj()
     add_note(&s, "a")
     add_proj(&s, "b")
-    ss, err := load_state()
+    ss, err := nf_load(NOTES_PATH)
     test.expect(t, err == .NONE)
     test.expectf(t, ss.current_proj == s.current_proj, "loaded `{}` != saved `{}`", ss.current_proj, s.current_proj)
     test.expect(t, len(ss.projs) == len(s.projs))
