@@ -4,6 +4,7 @@ import "core:c/libc"
 import "core:fmt"
 import "core:mem"
 import "core:os"
+import "core:slice"
 import "core:strconv"
 import "core:strings"
 
@@ -367,20 +368,30 @@ execute_commands :: proc(state: ^State) {
     }
 }
 
+has_open_cmd :: proc() -> (path: string, ok: bool) {
+    idx := slice.linear_search(os.args[:], "open") or_return
+    if len(os.args) > idx + 1 do return os.args[idx + 1], true
+    return
+}
+
 main :: proc() {
 
-    path := nf_create_or_use_appdata_path()
-    state, err := nf_load(path)
+    nf_path: string
+    has_open: bool
+    if path, ok := has_open_cmd(); ok {
+        nf_path = path
+        has_open = ok
+    } else {
+        nf_path = nf_create_or_use_appdata_path()
+    }
+
+    fmt.println("notes version:", NOTES_VERSION)
+    fmt.println("working path:", nf_path)
+
+    state, err := nf_load(nf_path)
     assert(err == .NONE)
 
-    is_open := len(os.args) == 3 && os.args[1] == "open"
-    if is_open || len(os.args) == 1 {
-        if is_open {
-            NOTES_PATH = os.args[2]
-            state, err = nf_load(NOTES_PATH)
-            assert(err == .NONE)
-        }
-        fmt.println("notes version:", NOTES_VERSION)
+    if len(os.args) == 1 || has_open {
         if len(state.projs) == 0 {
             fmt.println("Currently no projects have been create.")
             fmt.println("Use `np <name>` to create a new project.")
