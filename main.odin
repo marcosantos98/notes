@@ -386,10 +386,15 @@ main :: proc() {
     }
 
     fmt.println("notes version:", NOTES_VERSION)
-    fmt.println("working path:", nf_path)
 
-    state, err := nf_load(nf_path)
-    assert(err == .NONE)
+    state: State
+    err: NotesError
+    if state, err = nf_load(nf_path); err != .NONE {
+        fmt.printf("[ERROR]: Failed to load {}: {}", nf_path, msg_from_err(err))
+        return
+    }
+
+    fmt.println("working path:", nf_path)
 
     if len(os.args) == 1 || has_open {
         if len(state.projs) == 0 {
