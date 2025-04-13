@@ -4,6 +4,7 @@ import "core:c/libc"
 import "core:fmt"
 import "core:mem"
 import "core:os"
+import "core:path/filepath"
 import "core:slice"
 import "core:strconv"
 import "core:strings"
@@ -325,6 +326,7 @@ execute_commands :: proc(state: ^State) {
         fmt.println("      p: change the current working project to the specified one. `notes p test_project`.")
         fmt.println("     cp: print information about current working project in the global state. `notes cp`.")
         fmt.println("   open: open the given notes file instead of global. `notes open <filepath>.nf`")
+        fmt.println("     nl: don't open local `Notes` file if available, instead use the global file. `notes nl`")
         fmt.println()
         fmt.println("INFO: Commands can be chained and they will be executed in order.")
         fmt.println("    > `notes p other_project add \"test note\" ls")
@@ -342,6 +344,13 @@ execute_commands :: proc(state: ^State) {
         return true, 1
     }
 
+    on_nl :: proc(state: ^State, args: []string) -> (bool, int) {
+        assert(args[0] == "nl")
+        err: NotesError
+        state^, err = nf_load(nf_create_or_use_appdata_path())
+        return true, 1
+    }
+
     cmds := make(map[string]proc(state: ^State, args: []string) -> (bool, int), context.temp_allocator)
     cmds["add"] = on_add
     cmds["ls"] = on_ls
@@ -350,6 +359,7 @@ execute_commands :: proc(state: ^State) {
     cmds["h"] = on_help
     cmds["help"] = on_help
     cmds["cp"] = on_cp
+    cmds["nl"] = on_nl
     // :volatile(on_help)
 
     for i := 1; i < len(os.args); {
@@ -374,6 +384,20 @@ has_open_cmd :: proc() -> (path: string, ok: bool) {
     return
 }
 
+has_local_file :: proc() -> (string, bool) {
+    if files, err := filepath.glob(
+        fmt.tprintf("{}\\*.nf", os.get_current_directory(context.temp_allocator)),
+        context.temp_allocator,
+    ); err == nil && len(files) == 1 {
+        if _, err := nf_check_magic_get_version(files[0]); err != .NONE {
+            fmt.printfln("[Error] Failed checking magic for {}: {}", files[0], msg_from_err(err))
+            return "", false
+        }
+        return files[0], true
+    }
+    return "", false
+}
+
 main :: proc() {
 
     nf_path: string
@@ -381,6 +405,8 @@ main :: proc() {
     if path, ok := has_open_cmd(); ok {
         nf_path = path
         has_open = ok
+    } else if local_path, has_local := has_local_file(); has_local {
+        nf_path = local_path
     } else {
         nf_path = nf_create_or_use_appdata_path()
     }

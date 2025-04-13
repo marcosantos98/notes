@@ -93,8 +93,18 @@ nf_load_state_vx :: proc(path: string, data: []byte, version: int) -> (State, No
     panic("Unreachable")
 }
 
-@(private)
-check_magic_get_version :: proc(data: []byte) -> (int, NotesError) {
+nf_check_magic_get_version :: proc {
+    nf_check_magic_get_version_data,
+    nf_check_magic_get_version_file,
+}
+
+nf_check_magic_get_version_file :: proc(path: string) -> (int, NotesError) {
+    data, ok := os.read_entire_file(path, context.temp_allocator)
+    if ok do return nf_check_magic_get_version_data(data)
+    return -1, .FILE_NOT_FOUND
+}
+
+nf_check_magic_get_version_data :: proc(data: []byte) -> (int, NotesError) {
     // version 1 doesn't contain the magic
     has_magic := data[0] == 'N' && data[1] == 'O' && data[2] == 'T' && data[3] == 'E' && data[4] == 'S'
     if !has_magic && data[0] != 1 do return auto_cast data[0], .VX_NO_MAGIC
@@ -109,7 +119,7 @@ nf_load :: proc(path: string) -> (State, NotesError) {
     data, ok := os.read_entire_file(path, context.temp_allocator)
     if !ok do return {}, .FILE_NOT_FOUND
 
-    if version, err := check_magic_get_version(data); err == .NONE do return nf_load_state_vx(path, data, version)
+    if version, err := nf_check_magic_get_version(data); err == .NONE do return nf_load_state_vx(path, data, version)
 
     panic("unreacheable: nf_load")
 }
