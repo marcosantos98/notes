@@ -6,6 +6,8 @@ import test "core:testing"
 
 T :: test.T
 
+NOTES_PATH :: #config(NOTES_PATH, "")
+
 state_with_test_proj :: proc() -> State {
     s := state_init(NOTES_PATH)
     nf_save(s)
