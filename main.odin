@@ -264,9 +264,7 @@ interactive_mode :: proc(state: ^State) {
                         os.write_entire_file(to, data) or_return
                         return true
                     }
-                    np := NOTES_PATH
-                    if np == "" do np = nf_create_or_use_appdata_path()
-                    copy_file(np, fmt.tprintf("{}.backup", np))
+                    copy_file(state.path, fmt.tprintf("{}.backup", state.path))
                 }
             case "h":
                 fallthrough
