@@ -10,8 +10,8 @@ NOTES_PATH :: #config(NOTES_PATH, "")
 
 state_with_test_proj :: proc() -> State {
     s := state_init(NOTES_PATH)
-    nf_save(s)
     add_proj(&s, "test")
+    nf_save(s)
     return s
 }
 
@@ -165,6 +165,35 @@ test_cmd_rm_note :: proc(t: ^T) {
         "project `test` shouldn't contain notes after `rn`. len is {}",
         len(state.projs[state.current_proj].notes),
     )
+    clear_test_state()
+}
+
+@(test)
+test_cmd_tag_note :: proc(t: ^T) {
+    state := state_with_test_proj()
+    defer clear_test_state()
+    add_note(&state, "test")
+    test.expect(t, tag_note(&state, "0", "a"), "Failed to tag note")
+    if !test.expect(t, len(state.projs[state.current_proj].notes[0].tags) == 1) {
+        test.fail(t)
+        return
+    }
+    test.expect(t, state.projs[state.current_proj].notes[0].tags[0] == "a")
+}
+
+@(test)
+test_cmd_tag_note_fail_invalid_index :: proc(t: ^T) {
+    state := state_with_test_proj()
+    test.expect(t, !tag_note(&state, "3", "ad"))
+    clear_test_state()
+}
+
+@(test)
+test_cmd_tag_note_fail_already_contains :: proc(t: ^T) {
+    state := state_with_test_proj()
+    add_note(&state, "a")
+    test.expect(t, tag_note(&state, "0", "b"))
+    test.expect(t, !tag_note(&state, "0", "b"))
     clear_test_state()
 }
 

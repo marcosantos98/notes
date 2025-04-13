@@ -11,9 +11,10 @@ import "core:strings"
 
 NOTES_VERSION :: 0.2
 
-// :volatile(note)
+// :volatile(notes)
 Note :: struct {
     title: string,
+    tags:  [dynamic]string,
 }
 
 // :volatile(proj)
@@ -108,7 +109,8 @@ cpy_proj :: proc(state: ^State, old, new: string) -> Proj {
         notes = make([dynamic]Note, context.temp_allocator),
     }
     for n in proj.notes {
-        append(&cpy.notes, Note{strings.clone(n.title, context.temp_allocator)})
+        tags := slice.clone_to_dynamic(n.tags[:], context.temp_allocator)
+        append(&cpy.notes, Note{strings.clone(n.title, context.temp_allocator), tags})
     }
     return cpy
 }
@@ -136,7 +138,7 @@ add_note :: proc(state: ^State, note: string) -> bool {
         return false
     }
     proj := &state.projs[state.current_proj]
-    append(&proj.notes, Note{note})
+    append(&proj.notes, Note{note, make([dynamic]string, context.temp_allocator)})
     nf_save(state^)
     return true
 }
@@ -165,6 +167,57 @@ rm_note :: proc(state: ^State, idx: string) -> bool {
     panic("Unreachable")
 }
 
+tag_note :: proc(state: ^State, idx, tag: string) -> bool {
+    if state.current_proj not_in state.projs || state.current_proj == "" {
+        fmt.eprintln("Working project not set. Use `sw` to switch to existing one or `np` to create one.")
+        return false
+    }
+
+    if len(state.projs[state.current_proj].notes) == 0 {
+        fmt.eprintln("Can remove when project doesn't contain notes")
+        return false
+    }
+
+    proj := &state.projs[state.current_proj]
+    val, ok := strconv.parse_uint(idx)
+    if ok && (val >= 0 && val < len(proj.notes)) {
+        note := &proj.notes[val]
+        if _, found := slice.linear_search(note.tags[:], tag); found {
+            fmt.eprintfln("Note already contains tag: `{}`.", tag)
+            return false
+        }
+        append(&note.tags, strings.clone(tag, context.temp_allocator))
+        nf_save(state^)
+        return true
+    } else {
+        fmt.println("Given argument is not a valid index.")
+        return false
+    }
+    panic("Unreachable")
+
+}
+
+sel_note :: proc(state: ^State, tag: string) -> bool {
+    if state.current_proj not_in state.projs || state.current_proj == "" {
+        fmt.eprintln("Working project not set. Use `sw` to switch to existing one or `np` to create one.")
+        return false
+    }
+
+    if len(state.projs[state.current_proj].notes) == 0 {
+        fmt.eprintln("Can remove when project doesn't contain notes")
+        return false
+    }
+
+    fmt.println("selected all with:", tag)
+    for n in state.projs[state.current_proj].notes {
+        if slice.contains(n.tags[:], tag) {
+            fmt.println("-", n.title)
+        }
+    }
+
+    return true
+}
+
 // ;note
 
 print_help :: proc() {
@@ -174,12 +227,15 @@ print_help :: proc() {
     fmt.println("")
     fmt.println("    - np <name>: create new project.")
     fmt.println("    - del <name>: delete project.")
+    fmt.println("    - rename <old> <new>: rename project.")
     fmt.println("    - cp: print info for current project.")
     fmt.println("    - lsp: list all projects.")
     fmt.println("    - sw <name>: switch current project.")
     fmt.println("")
     fmt.println("    - addn | an | add <note>: add note to current project.")
-    fmt.println("    - rn <index>: remove note at given index.")
+    fmt.println("    - rn | rm <index>: remove note at given index.")
+    fmt.println("    - tag <index> <tag>: tag note at index with given tag.")
+    fmt.println("    - sel <tag>: select all with tag.")
     fmt.println("    - ls: list all notes in the current project.")
     fmt.println("    - lsi: list all notes with index in the current project.")
 }
@@ -229,6 +285,16 @@ interactive_mode :: proc(state: ^State) {
                 fmt.printfln("ls {}:", state.current_proj)
                 for n in state.projs[state.current_proj].notes {
                     fmt.println("-", n.title)
+                    if len(n.tags) > 0 {
+                        fmt.print("  tags: ")
+                        for t, idx in n.tags {
+                            fmt.printf("[{}]", t)
+                            if idx != len(n.tags) - 1 {
+                                fmt.print(" ")
+                            }
+                        }
+                        fmt.println()
+                    }
                 }
             case "lsp":
                 for k, _ in state.projs {
@@ -238,6 +304,9 @@ interactive_mode :: proc(state: ^State) {
                 for n, i in state.projs[state.current_proj].notes {
                     fmt.printfln("[{}] {}", i, n.title)
                 }
+            case "sel":
+                err_expect(prompt_parts[1:], 1, "`sel` requires the tag. `sel test`.")
+                sel_note(state, prompt_parts[1])
             case "rm":
                 fallthrough
             case "rn":
@@ -256,6 +325,14 @@ interactive_mode :: proc(state: ^State) {
             case "del":
                 err_expect(prompt_parts[1:], 1, "`del` requires an argument. `del <project name>`")
                 del_proj(state, prompt_parts[1])
+            case "tag":
+                err_expect(
+                    prompt_parts[1:],
+                    2,
+                    "`tag` requires index of note and tag. You can get the index from `lsi` command. `tag <index> <tag>`",
+                    exact = true,
+                )
+                tag_note(state, prompt_parts[1], prompt_parts[2])
             case "backup":
                 when ODIN_DEBUG {
                     copy_file :: proc(file, to: string) -> bool {

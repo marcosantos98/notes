@@ -18,9 +18,11 @@ projects:
     notes 0..n_notes:
 	u16 n_title_len
 	[n_title_len]u8 n_title
+	u16 tags_len
+	[tags_len]string{u16 len, [len]u8} n_tags
 */
 
-NF_VERSION: u8 : 2
+NF_VERSION: u8 : 3
 
 @(private)
 write_str :: proc(dw: ^DynWriter, s: string) {
@@ -72,7 +74,7 @@ nf_load_state_vx :: proc(path: string, data: []byte, version: int) -> (State, No
             p.name = read_str(data, &cursor)
             notes_l := read_u16(data, &cursor)
             for _ in 0 ..< notes_l {
-                append(&p.notes, Note{read_str(data, &cursor)})
+                append(&p.notes, Note{read_str(data, &cursor), make([dynamic]string, context.temp_allocator)})
             }
             s.projs[p.name] = p
         }
@@ -83,11 +85,41 @@ nf_load_state_vx :: proc(path: string, data: []byte, version: int) -> (State, No
         return load_version_v1(path, data)
     }
 
+    load_version_v3 :: proc(path: string, data: []byte) -> State {
+        cursor: u32 = 0
+        s := State {
+            current_proj = read_str(data, &cursor),
+            projs        = make(map[string]Proj, context.temp_allocator),
+            path         = path,
+        }
+
+        n_p := read_u16(data, &cursor)
+        for _ in 0 ..< n_p {
+            p := Proj{}
+            p.notes = make([dynamic]Note, context.temp_allocator)
+            p.name = read_str(data, &cursor)
+            notes_l := read_u16(data, &cursor)
+            for _ in 0 ..< notes_l {
+                note := read_str(data, &cursor)
+                tags_len := read_u16(data, &cursor)
+                tags := make([dynamic]string, context.temp_allocator)
+                for _ in 0 ..< tags_len {
+                    append(&tags, read_str(data, &cursor))
+                }
+                append(&p.notes, Note{note, tags})
+            }
+            s.projs[p.name] = p
+        }
+        return s
+    }
+
     switch version {
     case 1:
         return load_version_v1(path, data[1:]), .NONE
     case 2:
         return load_version_v2(path, data[6:]), .NONE
+    case 3:
+        return load_version_v3(path, data[6:]), .NONE
     }
 
     panic("Unreachable")
@@ -124,6 +156,9 @@ nf_load :: proc(path: string) -> (State, NotesError) {
     panic("unreacheable: nf_load")
 }
 
+// :volatile(proj)
+// :volatile(notes)
+// :volatile(state)
 nf_save :: proc(s: State) -> NotesError {
 
     assert(len(s.path) > 0)
@@ -145,6 +180,10 @@ nf_save :: proc(s: State) -> NotesError {
         dyn_writer_u16(&writer, auto_cast len(v.notes))
         for n in v.notes {
             write_str(&writer, n.title)
+            dyn_writer_u16(&writer, auto_cast len(n.tags))
+            for t in n.tags {
+                write_str(&writer, t)
+            }
         }
     }
 
