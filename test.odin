@@ -6,10 +6,12 @@ import test "core:testing"
 
 T :: test.T
 
+NOTES_PATH :: #config(NOTES_PATH, "")
+
 state_with_test_proj :: proc() -> State {
-    s := state_init()
-    save_state(s)
+    s := state_init(NOTES_PATH)
     add_proj(&s, "test")
+    nf_save(s)
     return s
 }
 
@@ -167,12 +169,42 @@ test_cmd_rm_note :: proc(t: ^T) {
 }
 
 @(test)
+test_cmd_tag_note :: proc(t: ^T) {
+    state := state_with_test_proj()
+    defer clear_test_state()
+    add_note(&state, "test")
+    test.expect(t, tag_note(&state, "0", "a"), "Failed to tag note")
+    if !test.expect(t, len(state.projs[state.current_proj].notes[0].tags) == 1) {
+        test.fail(t)
+        return
+    }
+    test.expect(t, state.projs[state.current_proj].notes[0].tags[0] == "a")
+}
+
+@(test)
+test_cmd_tag_note_fail_invalid_index :: proc(t: ^T) {
+    state := state_with_test_proj()
+    test.expect(t, !tag_note(&state, "3", "ad"))
+    clear_test_state()
+}
+
+@(test)
+test_cmd_tag_note_fail_already_contains :: proc(t: ^T) {
+    state := state_with_test_proj()
+    add_note(&state, "a")
+    test.expect(t, tag_note(&state, "0", "b"))
+    test.expect(t, !tag_note(&state, "0", "b"))
+    clear_test_state()
+}
+
+@(test)
 test_save_load :: proc(t: ^T) {
     s := state_with_test_proj()
     add_note(&s, "a")
     add_proj(&s, "b")
-    ss := load_state()
-    test.expectf(t, ss.current_proj == s.current_proj, "{} != {}", ss.current_proj, s.current_proj)
+    ss, err := nf_load(NOTES_PATH)
+    test.expect(t, err == .NONE)
+    test.expectf(t, ss.current_proj == s.current_proj, "loaded `{}` != saved `{}`", ss.current_proj, s.current_proj)
     test.expect(t, len(ss.projs) == len(s.projs))
     test.expect(t, "b" in ss.projs)
     test.expect(t, ss.projs["test"].notes[0].title == "a")
