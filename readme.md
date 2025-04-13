@@ -26,8 +26,9 @@ The above command performs an `add`, a `sw` and a `ls` operation in a single cli
     - [ ] link;
     - [ ] copy;
     - [ ] move;
-    - [ ] tags;
-- [ ] Filters;
+    - [x] tags;
+- [x] Filters;
+    - [x] select <tag>
 - [ ] GUI version;
 - [ ] WEB version (WASM);
 
@@ -44,6 +45,10 @@ The above command performs an `add`, a `sw` and a `ls` operation in a single cli
 | addn \| an \| add <note> | add note to current project | - |
 | rn \| rm <index> | remove the note at the given index | - |
 | cp | print info about current project | - |
+| backup | create a cpy of the working file. | - |
+| tag <index> <tag> | tags the note at `index` with given `tag` | - | 
+| rename <old> <new> | renames project from `old` to `new` | if current project is `old` sets current project to `new` |
+| sel <tag> | list all notes with `tag` | - |
 | exit | exits the cli | - |
 | help \| h | display help | - |
 
@@ -53,12 +58,6 @@ The "app" is written in Odin, so we use the Odin compiler. I know, smart.
 
 ```
 > build.bat release
-```
-
-Additionally we can use `-define:NOTES_PATH=<path>` to specify where the "app" will save and load its state.
-
-```
-> odin build . -:ospeed -define:NOTES_PATH="./mypath/notes.mom"
 ```
 
 ## Where it saves the notes, How and Why:
@@ -74,26 +73,30 @@ The currently working layout is version 1.
 
 ```
 NFILE {
+    [5]u8 magic;
     u8 version;
 
-    u16 current_project_name_len;
-    [current_project_name_len]u8 current_project_name;
+    String current_project_name;
     
     u16 num_of_projects;
     [num_of_projects]Project;
 }
 
 Project {
-    u16 project_name_len;
-    [project_name_len]u8 project_name;
+    String project_name;
 
     u16 number_of_notes;
     [number_of_notes]Note;
 }
 
 Note {
-    u16 note_len;
-    [note_len]u8 note;
+    String note;
+    u16 tags_len;
+    [tags_len]String tags;
 }
 
+String {
+    u16 len;
+    [len]u8 data;
+}
 ```
