@@ -9,7 +9,7 @@ import "core:slice"
 import "core:strconv"
 import "core:strings"
 
-NOTES_VERSION :: 0.2
+NOTES_VERSION :: "0.2.1"
 
 // :volatile(notes)
 Note :: struct {
@@ -490,7 +490,7 @@ main :: proc() {
     state: State
     err: NotesError
     if state, err = nf_load(nf_path); err != .NONE {
-        fmt.printf("[ERROR]: Failed to load {}: {}", nf_path, msg_from_err(err))
+        fmt.printfln("[ERROR]: Failed to load {}: {}", nf_path, msg_from_err(err))
         return
     }
 
