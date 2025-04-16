@@ -137,7 +137,10 @@ nf_check_magic_get_version_data :: proc(data: []byte) -> (int, NotesError) {
 
 nf_load :: proc(path: string) -> (State, NotesError) {
     data, ok := os.read_entire_file(path, context.temp_allocator)
-    if !ok do return {}, .FILE_NOT_FOUND
+    if !ok {
+        if os.exists(path) do return {}, .FAILED_TO_LOAD
+        return state_init(path), .NONE
+    }
 
     if version, err := nf_check_magic_get_version(data); err == .NONE do return nf_load_state_vx(path, data, version)
 
