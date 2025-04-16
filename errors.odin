@@ -6,6 +6,7 @@ NotesError :: enum {
     FILE_NOT_FOUND,
     INVALID_VERSION,
     FAILED_TO_SAVE,
+    FAILED_TO_LOAD,
 }
 
 msg_from_err :: proc(err: NotesError) -> string {
@@ -19,6 +20,8 @@ msg_from_err :: proc(err: NotesError) -> string {
         return "Invalid version for `Notes` file. It may be corrupted."
     case .FAILED_TO_SAVE:
         return "Couldn't save the state to the working `Notes` file."
+    case .FAILED_TO_LOAD:
+        return "Couldn't load the state file."
     }
     panic("Unreachable")
 }

@@ -1,6 +1,5 @@
 package main
 
-import "core:fmt"
 import "core:os"
 import "core:strings"
 /*
@@ -42,17 +41,6 @@ read_str :: proc(data: []u8, cursor: ^u32) -> string {
     len := read_u16(data, cursor)
     defer cursor^ += auto_cast len
     return strings.clone_from_bytes(data[cursor^:cursor^ + auto_cast len], context.temp_allocator)
-}
-
-nf_create_or_use_appdata_path :: proc() -> string {
-    path := os.get_env("appdata", context.temp_allocator)
-    notes_path := fmt.tprintf("{}\\notes-global", path)
-    if os.exists(notes_path) do return fmt.tprintf("{}\\global.nf", notes_path)
-
-    if err := os.make_directory(notes_path); err != nil {
-        panic("ksjdkla")
-    }
-    return fmt.tprintf("{}\\global.nf", notes_path)
 }
 
 // :volatile(proj)
@@ -149,7 +137,10 @@ nf_check_magic_get_version_data :: proc(data: []byte) -> (int, NotesError) {
 
 nf_load :: proc(path: string) -> (State, NotesError) {
     data, ok := os.read_entire_file(path, context.temp_allocator)
-    if !ok do return {}, .FILE_NOT_FOUND
+    if !ok {
+        if os.exists(path) do return {}, .FAILED_TO_LOAD
+        return state_init(path), .NONE
+    }
 
     if version, err := nf_check_magic_get_version(data); err == .NONE do return nf_load_state_vx(path, data, version)
 
