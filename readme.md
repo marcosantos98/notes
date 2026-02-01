@@ -3,19 +3,19 @@
 Take quick notes from your terminal without needing external tools.
 
 > [!WARNING]
-> This is a work in progress project and only tested on windows.
+> This is a work-in-progress project.
 
 ## Usage:
 
-Currently it contains an interactive mode and a cli mode. In interactive mode it works like a simple shell, in cli mode you can chain various commands to change the state.
+It currently includes an interactive mode and a CLI mode. In interactive mode it works like a simple shell, in CLI mode you can chain various commands to change the state.
 
 ```
 notes add "this note is cool" p other_project ls
 ```
 
-The above command performs an `add`, a `sw` and a `ls` operation in a single cli command. More info can be obtain with `notes help`.
+The above command performs an `add`, a `sw` and a `ls` operation in a single CLI command. More info can be obtained with `notes help`.
 
-## isn't finished and why?
+## isn't finished, and why?
 
 - [x] Support for multiple projects;
     - [ ] tags;
@@ -45,11 +45,11 @@ The above command performs an `add`, a `sw` and a `ls` operation in a single cli
 | addn \| an \| add <note> | add note to current project | - |
 | rn \| rm <index> | remove the note at the given index | - |
 | cp | print info about current project | - |
-| backup | create a cpy of the working file. | - |
+| backup | create a copy of the working file. | - |
 | tag <index> <tag> | tags the note at `index` with given `tag` | - | 
 | rename <old> <new> | renames project from `old` to `new` | if current project is `old` sets current project to `new` |
 | sel <tag> | list all notes with `tag` | - |
-| exit | exits the cli | - |
+| exit | exits the CLI | - |
 | help \| h | display help | - |
 
 ## Building:
@@ -60,12 +60,12 @@ The "app" is written in Odin, so we use the Odin compiler. I know, smart.
 > build.bat release
 ```
 
-## Where it saves the notes, How and Why:
+## Where it saves notes, how, and why:
 
 - `Where`: Notes are currently saved in `%APPDATA%/notes-global/global.bin`.
 - `How`: It uses a custom file layout that is encoded and decoded. The save and 
 load functionality is available at `filedata.odin`.
-- `Why`: Using any sort of sql or other type of databases requires the user to have it installed, having local files are easier to mantain and the migration is done when versions missmatch, at least, that is the plan.
+- `Why`: Using any sort of sql or other type of databases requires the user to have it installed, having local files are easier to maintain and the migration is done when versions mismatch, at least, that is the plan.
 
 ### FileLayout:
 

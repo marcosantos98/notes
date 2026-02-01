@@ -144,7 +144,7 @@ nf_load :: proc(path: string) -> (State, NotesError) {
 
     if version, err := nf_check_magic_get_version(data); err == .NONE do return nf_load_state_vx(path, data, version)
 
-    panic("unreacheable: nf_load")
+    panic("unreachable: nf_load")
 }
 
 // :volatile(proj)

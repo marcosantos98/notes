@@ -9,7 +9,7 @@ import "core:slice"
 import "core:strconv"
 import "core:strings"
 
-NOTES_VERSION :: "0.2.1"
+NOTES_VERSION :: "0.2.2"
 
 // :volatile(notes)
 Note :: struct {
@@ -53,7 +53,7 @@ err_expect :: proc(parts: []string, n_args: int, msg: string, args: ..any, exact
 // :project
 add_proj :: proc(state: ^State, name: string) {
     if name in state.projs {
-        fmt.printfln("`{}` already exits.", name)
+        fmt.printfln("`{}` already exists.", name)
         fmt.println("Use `sw <name>` to switch to the specified project if you aren't already on it.")
         return
     }
@@ -86,7 +86,7 @@ print_project :: proc(state: State) {
         return
     }
     fmt.println("Current project:", state.current_proj)
-    fmt.println("   > N of notes:", len(state.projs[state.current_proj].notes))
+    fmt.println("   > Number of notes:", len(state.projs[state.current_proj].notes))
 }
 
 switch_proj :: proc(state: ^State, name: string) -> bool {
@@ -150,7 +150,7 @@ rm_note :: proc(state: ^State, idx: string) -> bool {
     }
 
     if len(state.projs[state.current_proj].notes) == 0 {
-        fmt.eprintln("Can remove when project doesn't contain notes")
+        fmt.eprintln("Cannot remove when project doesn't contain notes")
         return false
     }
 
@@ -208,7 +208,7 @@ sel_note :: proc(state: ^State, tag: string) -> bool {
         return false
     }
 
-    fmt.println("selected all with:", tag)
+    fmt.println("Selected notes with:", tag)
     for n in state.projs[state.current_proj].notes {
         if slice.contains(n.tags[:], tag) {
             fmt.println("-", n.title)
@@ -250,7 +250,7 @@ interactive_mode :: proc(state: ^State) {
             prompt_size := libc.strlen(cstring(raw_data(prompt)))
             fmt.assertf(
                 prompt[prompt_size - 1] == '\n',
-                "expected new line at end but got {:c} {}",
+                "expected newline at end but got {:c} {}",
                 prompt[prompt_size],
                 prompt[prompt_size],
             )
@@ -310,7 +310,7 @@ interactive_mode :: proc(state: ^State) {
             case "rm":
                 fallthrough
             case "rn":
-                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. use `lsi` to get it")
+                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. Use `lsi` to get it")
                 rm_note(state, prompt_parts[1])
             case "sw":
                 err_expect(
@@ -329,7 +329,7 @@ interactive_mode :: proc(state: ^State) {
                 err_expect(
                     prompt_parts[1:],
                     2,
-                    "`tag` requires index of note and tag. You can get the index from `lsi` command. `tag <index> <tag>`",
+                    "`tag` requires the index of note and tag. You can get the index from `lsi` command. `tag <index> <tag>`",
                     exact = true,
                 )
                 tag_note(state, prompt_parts[1], prompt_parts[2])
@@ -347,7 +347,7 @@ interactive_mode :: proc(state: ^State) {
             case "help":
                 print_help()
             case:
-                fmt.printfln("`{}` not a command", prompt_input)
+                fmt.printfln("`{}` is not a command", prompt_input)
             }
         }
     }
@@ -358,7 +358,7 @@ execute_commands :: proc(state: ^State) {
     on_add :: proc(state: ^State, args: []string) -> (bool, int) {
         assert(args[0] == "add")
         if len(args) < 2 {
-            fmt.println("`add` requires a string afterwards.")
+            fmt.println("`add` requires a string after it.")
             return false, 0
         }
         return add_note(state, args[1]), 2
@@ -498,7 +498,7 @@ main :: proc() {
 
     if len(os.args) == 1 || has_open {
         if len(state.projs) == 0 {
-            fmt.println("Currently no projects have been create.")
+            fmt.println("Currently no projects have been created.")
             fmt.println("Use `np <name>` to create a new project.")
         } else if state.current_proj != "" {
             fmt.println("Current working project:", state.current_proj)
