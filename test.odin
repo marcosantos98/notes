@@ -210,3 +210,54 @@ test_save_load :: proc(t: ^T) {
     test.expect(t, ss.projs["test"].notes[0].title == "a")
     clear_test_state()
 }
+
+@(test)
+test_cmd_mv_note_to_proj :: proc(t: ^T) {
+    s := state_with_test_proj()
+    add_proj(&s, "test1")
+    test.expect(t, add_note(&s, "hello"), "failed to add note")
+    test.expect(t, tag_note(&s, "0", "a"), "failed to tag note")
+    test.expectf(t, s.current_proj == "test1", "expected `test1` is `{}`", s.current_proj)
+    test.expect(t, mv_note_to_proj(&s, "0", "test"), "failed to mv note")
+    test.expect(t, len(s.projs[s.current_proj].notes) == 0, "test1 shouldn't contain any notes")
+    test.expect(t, len(s.projs["test"].notes) == 1, "test should contain the note moved")
+    test.expectf(
+        t,
+        s.projs["test"].notes[0].title == "hello",
+        "test should contain the note `hello` but has `{}`",
+        s.projs["test"].notes[0].title,
+    )
+    test.expect(t, len(s.projs["test"].notes[0].tags) == 1, "The moved note should contain one tag")
+    test.expectf(
+        t,
+        s.projs["test"].notes[0].tags[0] == "a",
+        "The moved note should contain tag `a` but has `{}`",
+        s.projs["test"].notes[0].tags[0],
+    )
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_invalid_index :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, !mv_note_to_proj(&s, "a", ""), "Should fail when a number isnt provided!")
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_index_out_of_range :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, add_note(&s, "a"), "failed to add note")
+    test.expect(t, !mv_note_to_proj(&s, "2", ""), "Should fail since the project only contains one note")
+
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_invalid_proj :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, add_note(&s, "a"), "failed to add note")
+    test.expect(t, !mv_note_to_proj(&s, "0", "test1"), "Should fail since the project is invalid")
+
+    clear_test_state()
+}
