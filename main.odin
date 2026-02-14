@@ -9,7 +9,7 @@ import "core:slice"
 import "core:strconv"
 import "core:strings"
 
-NOTES_VERSION :: "0.2.1"
+NOTES_VERSION :: "0.2.2"
 
 // :volatile(notes)
 Note :: struct {
