@@ -218,6 +218,48 @@ sel_note :: proc(state: ^State, tag: string) -> bool {
     return true
 }
 
+mv_note_to_proj :: proc(state: ^State, _index: string, proj: string) -> bool {
+    if state.current_proj == "" {
+        fmt.println("No project has been set to use `mv`")
+        return false
+    }
+
+    index, ok := strconv.parse_uint(_index)
+    if !ok {
+        fmt.printfln("The given index is not a valid number: `{}`", _index)
+        return false
+    }
+
+    if index < 0 || index >= len(state.projs[state.current_proj].notes) {
+        fmt.println("The given index is out of range.")
+        return false
+    }
+
+    if proj not_in state.projs {
+        fmt.printfln("Project `{}` isn't a valid project.", proj)
+        return false
+    }
+
+    note := state.projs[state.current_proj].notes[index]
+    proj := &state.projs[proj]
+
+    new_note := Note{}
+    new_note.title = strings.clone_from(note.title, context.temp_allocator)
+    new_note.tags = make([dynamic]string, context.temp_allocator)
+    for t in note.tags {
+        append(&new_note.tags, strings.clone_from(t, context.temp_allocator))
+    }
+
+    append(&proj.notes, new_note)
+
+    if !rm_note(state, _index) {
+        panic("Report bug! Couldn't remove the note after copying it to the new project")
+    }
+
+    nf_save(state^)
+    return true
+}
+
 // ;note
 
 print_help :: proc() {
@@ -238,6 +280,7 @@ print_help :: proc() {
     fmt.println("    - sel <tag>: select all with tag.")
     fmt.println("    - ls: list all notes in the current project.")
     fmt.println("    - lsi: list all notes with index in the current project.")
+    fmt.println("    - mv <index> <proj>: move note to another project.")
 }
 
 interactive_mode :: proc(state: ^State) {
@@ -333,6 +376,14 @@ interactive_mode :: proc(state: ^State) {
                     exact = true,
                 )
                 tag_note(state, prompt_parts[1], prompt_parts[2])
+            case "mv":
+                err_expect(
+                    prompt_parts[1:],
+                    2,
+                    "`mv` requires index of note and the project to move into. You can get the index from `lsi` command and the project from `lsp` command. `mv <index> <project>`",
+                    exact = true,
+                )
+                mv_note_to_proj(state, prompt_parts[1], prompt_parts[2])
             case "backup":
                 when ODIN_DEBUG {
                     copy_file :: proc(file, to: string) -> bool {
