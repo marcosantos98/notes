@@ -7,8 +7,10 @@ import test "core:testing"
 T :: test.T
 
 NOTES_PATH :: #config(NOTES_PATH, "")
+LOCK_PATH :: #config(LOCK_PATH, "")
 
 state_with_test_proj :: proc() -> State {
+    check_lock_file(LOCK_PATH)
     s := state_init(NOTES_PATH)
     add_proj(&s, "test")
     nf_save(s)
@@ -16,9 +18,10 @@ state_with_test_proj :: proc() -> State {
 }
 
 clear_test_state :: proc() {
-    if os.exists("./test.bin") {
-        os.remove("./test.bin")
+    if os.exists("./test.nf") {
+        os.remove("./test.nf")
     }
+    remove_lock_file()
 }
 
 @(test)
@@ -60,7 +63,7 @@ test_cmd_del_not_current_project :: proc(t: ^T) {
 
 @(test)
 test_cmd_del_fail_not_valid_name :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !del_proj(&state, "slkda"), "del should fail when deleting invalid project")
     clear_test_state()
 }
@@ -84,8 +87,9 @@ test_cmd_rename :: proc(t: ^T) {
 
 @(test)
 test_cmd_rename_fail_invalid_proj :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !rename_proj(&state, "a", "b"), "rename should fail on invalid project")
+    clear_test_state()
 }
 
 @(test)
@@ -120,7 +124,8 @@ test_cmd_sw_fail_invalid :: proc(t: ^T) {
 
 @(test)
 test_cmd_add_note_fail_no_project :: proc(t: ^T) {
-    state := state_init()
+    check_lock_file()
+    state := state_init(NOTES_PATH)
     test.expectf(t, !add_note(&state, "test"), "`addn` should fail when the current proj isn't set")
     clear_test_state()
 }
@@ -140,7 +145,7 @@ test_cmd_add_note :: proc(t: ^T) {
 
 @(test)
 test_cmd_rm_note_fail_no_project :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !rm_note(&state, "0"), "`rn` should fail when the current_proj isnt set")
     clear_test_state()
 }
@@ -208,5 +213,56 @@ test_save_load :: proc(t: ^T) {
     test.expect(t, len(ss.projs) == len(s.projs))
     test.expect(t, "b" in ss.projs)
     test.expect(t, ss.projs["test"].notes[0].title == "a")
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_to_proj :: proc(t: ^T) {
+    s := state_with_test_proj()
+    add_proj(&s, "test1")
+    test.expect(t, add_note(&s, "hello"), "failed to add note")
+    test.expect(t, tag_note(&s, "0", "a"), "failed to tag note")
+    test.expectf(t, s.current_proj == "test1", "expected `test1` is `{}`", s.current_proj)
+    test.expect(t, mv_note_to_proj(&s, "0", "test"), "failed to mv note")
+    test.expect(t, len(s.projs[s.current_proj].notes) == 0, "test1 shouldn't contain any notes")
+    test.expect(t, len(s.projs["test"].notes) == 1, "test should contain the note moved")
+    test.expectf(
+        t,
+        s.projs["test"].notes[0].title == "hello",
+        "test should contain the note `hello` but has `{}`",
+        s.projs["test"].notes[0].title,
+    )
+    test.expect(t, len(s.projs["test"].notes[0].tags) == 1, "The moved note should contain one tag")
+    test.expectf(
+        t,
+        s.projs["test"].notes[0].tags[0] == "a",
+        "The moved note should contain tag `a` but has `{}`",
+        s.projs["test"].notes[0].tags[0],
+    )
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_invalid_index :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, !mv_note_to_proj(&s, "a", ""), "Should fail when a number isnt provided!")
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_index_out_of_range :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, add_note(&s, "a"), "failed to add note")
+    test.expect(t, !mv_note_to_proj(&s, "2", ""), "Should fail since the project only contains one note")
+
+    clear_test_state()
+}
+
+@(test)
+test_cmd_mv_note_fail_invalid_proj :: proc(t: ^T) {
+    s := state_with_test_proj()
+    test.expect(t, add_note(&s, "a"), "failed to add note")
+    test.expect(t, !mv_note_to_proj(&s, "0", "test1"), "Should fail since the project is invalid")
+
     clear_test_state()
 }

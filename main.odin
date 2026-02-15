@@ -8,8 +8,25 @@ import "core:path/filepath"
 import "core:slice"
 import "core:strconv"
 import "core:strings"
+import "core:terminal/ansi"
 
-NOTES_VERSION :: "0.2.2"
+NOTES_VERSION :: "0.3"
+GREEN :: ansi.CSI + ansi.FG_GREEN + ansi.SGR
+CYAN :: ansi.CSI + ansi.FG_CYAN + ansi.SGR
+RED :: ansi.CSI + ansi.FG_RED + ansi.SGR
+RESET :: ansi.CSI + ansi.RESET + ansi.SGR
+
+s_err :: #force_inline proc() -> string {
+    return RED + "ERROR:" + RESET
+}
+
+s_suc :: #force_inline proc() -> string {
+    return GREEN + "SUCCESS:" + RESET
+}
+
+cyan :: #force_inline proc(s: string) -> string {
+    return fmt.tprintf("{}{}{}", CYAN, s, RESET)
+}
 
 // :volatile(notes)
 Note :: struct {
@@ -53,8 +70,12 @@ err_expect :: proc(parts: []string, n_args: int, msg: string, args: ..any, exact
 // :project
 add_proj :: proc(state: ^State, name: string) {
     if name in state.projs {
-        fmt.printfln("`{}` already exists.", name)
-        fmt.println("Use `sw <name>` to switch to the specified project if you aren't already on it.")
+        fmt.printfln("{} `{}` already exits.", s_err(), cyan(name))
+        fmt.printfln(
+            "{} Use `{}` to switch to the specified project if you aren't already on it.",
+            cyan("-"),
+            cyan("sw <name>"),
+        )
         return
     }
 
@@ -65,39 +86,43 @@ add_proj :: proc(state: ^State, name: string) {
     }
     state.projs[name] = p
     nf_save(state^)
+
+    fmt.printfln("{} added new project `{}`.", s_suc(), cyan(name))
 }
 
 del_proj :: proc(state: ^State, name: string) -> bool {
     if name not_in state.projs {
-        fmt.printfln("`{}` isn't a valid project name.", name)
-        fmt.println("Use `lsp` to list all projects.")
+        fmt.printfln("{} `{}` isn't a valid project name.", s_err(), cyan(name))
+        fmt.printfln("{} Use `{}` to list all projects.", cyan("-"), cyan("lsp"))
         return false
     }
 
     if state.current_proj == name do state.current_proj = ""
     delete_key(&state.projs, name)
     nf_save(state^)
+    fmt.printfln("{} deleted project `{}`.", s_suc(), cyan(name))
     return true
 }
 
 print_project :: proc(state: State) {
     if state.current_proj == "" {
-        fmt.println("No project has been created to use `cp`")
+        fmt.printfln("{} No project has been created to use `{}`", s_err(), cyan("cp"))
         return
     }
-    fmt.println("Current project:", state.current_proj)
-    fmt.println("   > Number of notes:", len(state.projs[state.current_proj].notes))
+    fmt.println(CYAN + "Current project:" + RESET, state.current_proj)
+    fmt.println(CYAN + "   -" + RESET + " Number of notes:", len(state.projs[state.current_proj].notes))
 }
 
 switch_proj :: proc(state: ^State, name: string) -> bool {
     if name not_in state.projs {
-        fmt.printfln("`{}` doesn't exist.", name)
-        fmt.printfln("Use `np {}` to create the project.", name)
+        fmt.printfln("{} `{}` doesn't exist.", s_err(), cyan(name))
+        fmt.printfln("{} Use `{} {}` to create the project.", cyan("-"), cyan("np"), cyan(name))
         return false
     }
 
     state.current_proj = name
     nf_save(state^)
+    fmt.printfln("{} switched to project `{}`.", s_suc(), cyan(name))
     return true
 }
 
@@ -117,7 +142,7 @@ cpy_proj :: proc(state: ^State, old, new: string) -> Proj {
 
 rename_proj :: proc(state: ^State, old, new: string) -> bool {
     if old not_in state.projs {
-        fmt.printfln("`{}` isn't a valid project.", old)
+        fmt.printfln("{} `{}` isn't a valid project.", s_err(), cyan(old))
         return false
     }
 
@@ -127,6 +152,9 @@ rename_proj :: proc(state: ^State, old, new: string) -> bool {
     delete_key(&state.projs, old)
     state.projs[strings.clone(new, context.temp_allocator)] = cpy
     nf_save(state^)
+
+    fmt.printfln("{} renamed project `{}` -> `{}`.", s_suc(), cyan(old), cyan(new))
+
     return true
 }
 // ;project
@@ -134,34 +162,43 @@ rename_proj :: proc(state: ^State, old, new: string) -> bool {
 // :note
 add_note :: proc(state: ^State, note: string) -> bool {
     if state.current_proj == "" {
-        fmt.println("No project has been set to use `addn`")
+        fmt.printfln("{} No project has been set to use {}.", s_err(), cyan("`addn`"))
         return false
     }
     proj := &state.projs[state.current_proj]
     append(&proj.notes, Note{note, make([dynamic]string, context.temp_allocator)})
     nf_save(state^)
+    fmt.printfln("{} added new note to `{}`.", s_suc(), cyan(state.current_proj))
     return true
 }
 
 rm_note :: proc(state: ^State, idx: string) -> bool {
     if state.current_proj not_in state.projs || state.current_proj == "" {
-        fmt.eprintln("Working project not set. Use `sw` to switch to existing one or `np` to create one.")
+        fmt.printfln(
+            "{} Working project not set. Use {} to switch to existing one or {} to create one.",
+            s_err(),
+            cyan("`sw`"),
+            cyan("`np`"),
+        )
         return false
     }
 
     if len(state.projs[state.current_proj].notes) == 0 {
-        fmt.eprintln("Cannot remove when project doesn't contain notes")
+        fmt.printfln("{} Can't remove note when project doesn't contain notes.", s_err())
         return false
     }
 
     proj := &state.projs[state.current_proj]
     val, ok := strconv.parse_uint(idx)
     if ok && (val >= 0 && val < len(proj.notes)) {
+        note := proj.notes[val].title
+        fmt.printfln("{} removed note:", s_suc())
+        fmt.printfln("    {} {}", cyan("-"), note)
         ordered_remove(&proj.notes, val)
         nf_save(state^)
         return true
     } else {
-        fmt.println("Given argument is not a valid index.")
+        fmt.printfln("{} Given argument is not a valid index.", s_err())
         return false
     }
     panic("Unreachable")
@@ -169,12 +206,17 @@ rm_note :: proc(state: ^State, idx: string) -> bool {
 
 tag_note :: proc(state: ^State, idx, tag: string) -> bool {
     if state.current_proj not_in state.projs || state.current_proj == "" {
-        fmt.eprintln("Working project not set. Use `sw` to switch to existing one or `np` to create one.")
+        fmt.printfln(
+            "{} Working project not set. Use {} to switch to existing one or {} to create one.",
+            s_err(),
+            cyan("`sw`"),
+            cyan("`np`"),
+        )
         return false
     }
 
     if len(state.projs[state.current_proj].notes) == 0 {
-        fmt.eprintln("Can remove when project doesn't contain notes")
+        fmt.printfln("{} Can't remove tag from note when project doesn't contain notes.", s_err())
         return false
     }
 
@@ -183,14 +225,15 @@ tag_note :: proc(state: ^State, idx, tag: string) -> bool {
     if ok && (val >= 0 && val < len(proj.notes)) {
         note := &proj.notes[val]
         if _, found := slice.linear_search(note.tags[:], tag); found {
-            fmt.eprintfln("Note already contains tag: `{}`.", tag)
+            fmt.eprintfln("{} Note already contains tag: `{}`.", s_err(), cyan(tag))
             return false
         }
         append(&note.tags, strings.clone(tag, context.temp_allocator))
         nf_save(state^)
+        fmt.printfln("{} added `{}` tag to note.", s_suc(), cyan(tag))
         return true
     } else {
-        fmt.println("Given argument is not a valid index.")
+        fmt.printfln("{} Given argument is not a valid index.", s_err())
         return false
     }
     panic("Unreachable")
@@ -199,21 +242,71 @@ tag_note :: proc(state: ^State, idx, tag: string) -> bool {
 
 sel_note :: proc(state: ^State, tag: string) -> bool {
     if state.current_proj not_in state.projs || state.current_proj == "" {
-        fmt.eprintln("Working project not set. Use `sw` to switch to existing one or `np` to create one.")
+        fmt.printfln(
+            "{} Working project not set. Use {} to switch to existing one or {} to create one.",
+            s_err(),
+            cyan("`sw`"),
+            cyan("`np`"),
+        )
         return false
     }
 
     if len(state.projs[state.current_proj].notes) == 0 {
-        fmt.eprintln("Can remove when project doesn't contain notes")
+        fmt.printfln("{} Can't select notes with tag when project doesn't contain notes.", s_err())
         return false
     }
 
-    fmt.println("Selected notes with:", tag)
-    for n in state.projs[state.current_proj].notes {
+    fmt.printfln("{}: {}", cyan("Select all notes with tag"), tag)
+    for n, idx in state.projs[state.current_proj].notes {
         if slice.contains(n.tags[:], tag) {
-            fmt.println("-", n.title)
+            fmt.printfln("{} [{}] {}", cyan("-"), idx, n.title)
         }
     }
+
+    return true
+}
+
+mv_note_to_proj :: proc(state: ^State, _index: string, _proj: string) -> bool {
+    if state.current_proj == "" {
+        fmt.printfln("{} No project has been set to use `{}`", s_err(), cyan("mv"))
+        return false
+    }
+
+    index, ok := strconv.parse_uint(_index)
+    if !ok {
+        fmt.printfln("{} The given index is not a valid number: `{}`", s_err(), cyan(_index))
+        return false
+    }
+
+    if index < 0 || index >= len(state.projs[state.current_proj].notes) {
+        fmt.printfln("{} The given index is out of range.", s_err())
+        return false
+    }
+
+    if _proj not_in state.projs {
+        fmt.printfln("{} Project `{}` isn't a valid project.", s_err(), cyan(_proj))
+        return false
+    }
+
+    note := state.projs[state.current_proj].notes[index]
+    proj := &state.projs[_proj]
+
+    new_note := Note{}
+    new_note.title = strings.clone_from(note.title, context.temp_allocator)
+    new_note.tags = make([dynamic]string, context.temp_allocator)
+    for t in note.tags {
+        append(&new_note.tags, strings.clone_from(t, context.temp_allocator))
+    }
+
+    append(&proj.notes, new_note)
+
+    if !rm_note(state, _index) {
+        panic("Report bug! Couldn't remove the note after copying it to the new project")
+    }
+
+    nf_save(state^)
+
+    fmt.printfln("{} moved note from `{}` -> `{}`.", s_suc(), cyan(state.current_proj), cyan(_proj))
 
     return true
 }
@@ -238,6 +331,7 @@ print_help :: proc() {
     fmt.println("    - sel <tag>: select all with tag.")
     fmt.println("    - ls: list all notes in the current project.")
     fmt.println("    - lsi: list all notes with index in the current project.")
+    fmt.println("    - mv <index> <proj>: move note to another project.")
 }
 
 interactive_mode :: proc(state: ^State) {
@@ -245,7 +339,7 @@ interactive_mode :: proc(state: ^State) {
 
     this: for true {
         mem.zero(raw_data(prompt), len(prompt))
-        fmt.print("> ")
+        fmt.print(GREEN + "> " + RESET)
         if libc.fgets(raw_data(prompt), auto_cast len(prompt), libc.stdin) != nil {
             prompt_size := libc.strlen(cstring(raw_data(prompt)))
             fmt.assertf(
@@ -305,12 +399,12 @@ interactive_mode :: proc(state: ^State) {
                     fmt.printfln("[{}] {}", i, n.title)
                 }
             case "sel":
-                err_expect(prompt_parts[1:], 1, "`sel` requires the tag. `sel test`.")
+                err_expect(prompt_parts[1:], 1, "`sel` requires the tag. `sel test`.", exact = true) or_break
                 sel_note(state, prompt_parts[1])
             case "rm":
                 fallthrough
             case "rn":
-                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. Use `lsi` to get it")
+                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. use `lsi` to get it") or_break
                 rm_note(state, prompt_parts[1])
             case "sw":
                 err_expect(
@@ -318,12 +412,12 @@ interactive_mode :: proc(state: ^State) {
                     1,
                     "`sw` expects at least one argument. `sw <project name>`",
                     exact = true,
-                )
+                ) or_break
                 switch_proj(state, strings.clone(prompt_parts[1], context.temp_allocator))
             case "cp":
                 print_project(state^)
             case "del":
-                err_expect(prompt_parts[1:], 1, "`del` requires an argument. `del <project name>`")
+                err_expect(prompt_parts[1:], 1, "`del` requires an argument. `del <project name>`") or_break
                 del_proj(state, prompt_parts[1])
             case "tag":
                 err_expect(
@@ -331,8 +425,16 @@ interactive_mode :: proc(state: ^State) {
                     2,
                     "`tag` requires the index of note and tag. You can get the index from `lsi` command. `tag <index> <tag>`",
                     exact = true,
-                )
+                ) or_break
                 tag_note(state, prompt_parts[1], prompt_parts[2])
+            case "mv":
+                err_expect(
+                    prompt_parts[1:],
+                    2,
+                    "`mv` requires index of note and the project to move into. You can get the index from `lsi` command and the project from `lsp` command. `mv <index> <project>`",
+                    exact = true,
+                ) or_break
+                mv_note_to_proj(state, prompt_parts[1], prompt_parts[2])
             case "backup":
                 when ODIN_DEBUG {
                     copy_file :: proc(file, to: string) -> bool {
@@ -472,6 +574,30 @@ has_local_file :: proc() -> (string, bool) {
     return "", false
 }
 
+check_lock_file :: proc(lock_path: string = "") -> bool {
+    path := lock_path == "" ? nf_lock_path() : lock_path
+
+    if os.exists(path) {
+        return false
+    }
+
+    _, err := os.open(path, os.O_RDONLY | os.O_CREATE)
+    if err != os.ERROR_NONE {
+        fmt.println("Failed to create the .lock file")
+        return false
+    }
+
+    return true
+}
+
+remove_lock_file :: proc(lock_path: string = "") {
+    path := lock_path == "" ? nf_lock_path() : lock_path
+    if err := os.remove(path); err != os.ERROR_NONE {
+        fmt.println("Failed to remove the lock file. This will break the app when started again.")
+        fmt.printfln("Path: {}", path)
+    }
+}
+
 main :: proc() {
 
     nf_path: string
@@ -494,6 +620,11 @@ main :: proc() {
         return
     }
 
+    if !check_lock_file() {
+        fmt.println("Can't access the notes, someone has it opened.")
+        return
+    }
+
     fmt.println("working path:", nf_path)
 
     if len(os.args) == 1 || has_open {
@@ -504,8 +635,11 @@ main :: proc() {
             fmt.println("Current working project:", state.current_proj)
         }
         interactive_mode(&state)
+        remove_lock_file()
         return
     }
 
     execute_commands(&state)
+
+    remove_lock_file()
 }
