@@ -10,7 +10,7 @@ nf_get_appdata_path :: proc() -> string {
     if os.exists(notes_path) do return fmt.tprintf("{}\\global.nf", notes_path)
 
     if err := os.make_directory(notes_path); err != nil {
-        panic("ksjdkla")
+        panic("Couldnt create directory in the notes path.")
     }
 
     return path
