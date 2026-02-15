@@ -10,7 +10,7 @@ import "core:strconv"
 import "core:strings"
 import "core:terminal/ansi"
 
-NOTES_VERSION :: "0.2.2"
+NOTES_VERSION :: "0.3"
 GREEN :: ansi.CSI + ansi.FG_GREEN + ansi.SGR
 CYAN :: ansi.CSI + ansi.FG_CYAN + ansi.SGR
 RED :: ansi.CSI + ansi.FG_RED + ansi.SGR
