@@ -523,6 +523,30 @@ has_local_file :: proc() -> (string, bool) {
     return "", false
 }
 
+check_lock_file :: proc(lock_path: string = "") -> bool {
+    path := lock_path == "" ? nf_lock_path() : lock_path
+
+    if os.exists(path) {
+        return false
+    }
+
+    _, err := os.open(path, os.O_RDONLY | os.O_CREATE)
+    if err != os.ERROR_NONE {
+        fmt.println("Failed to create the .lock file")
+        return false
+    }
+
+    return true
+}
+
+remove_lock_file :: proc(lock_path: string = "") {
+    path := lock_path == "" ? nf_lock_path() : lock_path
+    if err := os.remove(path); err != os.ERROR_NONE {
+        fmt.println("Failed to remove the lock file. This will break the app when started again.")
+        fmt.printfln("Path: {}", path)
+    }
+}
+
 main :: proc() {
 
     nf_path: string
@@ -545,6 +569,11 @@ main :: proc() {
         return
     }
 
+    if !check_lock_file() {
+        fmt.println("Can't access the notes, someone has it opened.")
+        return
+    }
+
     fmt.println("working path:", nf_path)
 
     if len(os.args) == 1 || has_open {
@@ -555,8 +584,11 @@ main :: proc() {
             fmt.println("Current working project:", state.current_proj)
         }
         interactive_mode(&state)
+        remove_lock_file()
         return
     }
 
     execute_commands(&state)
+
+    remove_lock_file()
 }

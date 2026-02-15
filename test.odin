@@ -7,8 +7,10 @@ import test "core:testing"
 T :: test.T
 
 NOTES_PATH :: #config(NOTES_PATH, "")
+LOCK_PATH :: #config(LOCK_PATH, "")
 
 state_with_test_proj :: proc() -> State {
+    check_lock_file(LOCK_PATH)
     s := state_init(NOTES_PATH)
     add_proj(&s, "test")
     nf_save(s)
@@ -16,9 +18,10 @@ state_with_test_proj :: proc() -> State {
 }
 
 clear_test_state :: proc() {
-    if os.exists("./test.bin") {
-        os.remove("./test.bin")
+    if os.exists("./test.nf") {
+        os.remove("./test.nf")
     }
+    remove_lock_file()
 }
 
 @(test)
@@ -60,7 +63,7 @@ test_cmd_del_not_current_project :: proc(t: ^T) {
 
 @(test)
 test_cmd_del_fail_not_valid_name :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !del_proj(&state, "slkda"), "del should fail when deleting invalid project")
     clear_test_state()
 }
@@ -84,8 +87,9 @@ test_cmd_rename :: proc(t: ^T) {
 
 @(test)
 test_cmd_rename_fail_invalid_proj :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !rename_proj(&state, "a", "b"), "rename should fail on invalid project")
+    clear_test_state()
 }
 
 @(test)
@@ -120,7 +124,8 @@ test_cmd_sw_fail_invalid :: proc(t: ^T) {
 
 @(test)
 test_cmd_add_note_fail_no_project :: proc(t: ^T) {
-    state := state_init()
+    check_lock_file()
+    state := state_init(NOTES_PATH)
     test.expectf(t, !add_note(&state, "test"), "`addn` should fail when the current proj isn't set")
     clear_test_state()
 }
@@ -140,7 +145,7 @@ test_cmd_add_note :: proc(t: ^T) {
 
 @(test)
 test_cmd_rm_note_fail_no_project :: proc(t: ^T) {
-    state := state_init()
+    state := state_with_test_proj()
     test.expect(t, !rm_note(&state, "0"), "`rn` should fail when the current_proj isnt set")
     clear_test_state()
 }
