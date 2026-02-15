@@ -348,12 +348,12 @@ interactive_mode :: proc(state: ^State) {
                     fmt.printfln("[{}] {}", i, n.title)
                 }
             case "sel":
-                err_expect(prompt_parts[1:], 1, "`sel` requires the tag. `sel test`.")
+                err_expect(prompt_parts[1:], 1, "`sel` requires the tag. `sel test`.", exact = true) or_break
                 sel_note(state, prompt_parts[1])
             case "rm":
                 fallthrough
             case "rn":
-                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. use `lsi` to get it")
+                err_expect(prompt_parts[1:], 1, "`rn` requires the index of the note. use `lsi` to get it") or_break
                 rm_note(state, prompt_parts[1])
             case "sw":
                 err_expect(
@@ -361,12 +361,12 @@ interactive_mode :: proc(state: ^State) {
                     1,
                     "`sw` expects at least one argument. `sw <project name>`",
                     exact = true,
-                )
+                ) or_break
                 switch_proj(state, strings.clone(prompt_parts[1], context.temp_allocator))
             case "cp":
                 print_project(state^)
             case "del":
-                err_expect(prompt_parts[1:], 1, "`del` requires an argument. `del <project name>`")
+                err_expect(prompt_parts[1:], 1, "`del` requires an argument. `del <project name>`") or_break
                 del_proj(state, prompt_parts[1])
             case "tag":
                 err_expect(
@@ -374,7 +374,7 @@ interactive_mode :: proc(state: ^State) {
                     2,
                     "`tag` requires index of note and tag. You can get the index from `lsi` command. `tag <index> <tag>`",
                     exact = true,
-                )
+                ) or_break
                 tag_note(state, prompt_parts[1], prompt_parts[2])
             case "mv":
                 err_expect(
@@ -382,7 +382,7 @@ interactive_mode :: proc(state: ^State) {
                     2,
                     "`mv` requires index of note and the project to move into. You can get the index from `lsi` command and the project from `lsp` command. `mv <index> <project>`",
                     exact = true,
-                )
+                ) or_break
                 mv_note_to_proj(state, prompt_parts[1], prompt_parts[2])
             case "backup":
                 when ODIN_DEBUG {
