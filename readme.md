@@ -25,7 +25,7 @@ The above command performs an `add`, a `sw` and a `ls` operation in a single cli
     - [ ] edit;
     - [ ] link;
     - [ ] copy;
-    - [ ] move;
+    - [x] move;
     - [x] tags;
 - [x] Filters;
     - [x] select <tag>
@@ -47,6 +47,7 @@ The above command performs an `add`, a `sw` and a `ls` operation in a single cli
 | cp | print info about current project | - |
 | backup | create a cpy of the working file. | - |
 | tag <index> <tag> | tags the note at `index` with given `tag` | - | 
+| mv <index> <project> | moves note at `index` to `project` | - |
 | rename <old> <new> | renames project from `old` to `new` | if current project is `old` sets current project to `new` |
 | sel <tag> | list all notes with `tag` | - |
 | exit | exits the cli | - |
