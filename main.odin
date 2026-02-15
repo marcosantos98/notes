@@ -257,9 +257,9 @@ sel_note :: proc(state: ^State, tag: string) -> bool {
     }
 
     fmt.printfln("{}: {}", cyan("Select all notes with tag"), tag)
-    for n in state.projs[state.current_proj].notes {
+    for n, idx in state.projs[state.current_proj].notes {
         if slice.contains(n.tags[:], tag) {
-            fmt.printfln("{} {}", cyan("-"), n.title)
+            fmt.printfln("{} [{}] {}", cyan("-"), idx, n.title)
         }
     }
 
