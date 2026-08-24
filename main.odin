@@ -10,7 +10,7 @@ import "core:strconv"
 import "core:strings"
 import "core:terminal/ansi"
 
-NOTES_VERSION :: "0.3"
+NOTES_VERSION :: "0.3.1"
 GREEN :: ansi.CSI + ansi.FG_GREEN + ansi.SGR
 CYAN :: ansi.CSI + ansi.FG_CYAN + ansi.SGR
 RED :: ansi.CSI + ansi.FG_RED + ansi.SGR
@@ -437,10 +437,10 @@ interactive_mode :: proc(state: ^State) {
                 mv_note_to_proj(state, prompt_parts[1], prompt_parts[2])
             case "backup":
                 when ODIN_DEBUG {
-                    copy_file :: proc(file, to: string) -> bool {
-                        data := os.read_entire_file_from_filename(file, context.temp_allocator) or_return
+                    copy_file :: proc(file, to: string) -> os.Error {
+                        data := os.read_entire_file(file, context.temp_allocator) or_return
                         os.write_entire_file(to, data) or_return
-                        return true
+                        return os.ERROR_NONE
                     }
                     copy_file(state.path, fmt.tprintf("{}.backup", state.path))
                 }
@@ -562,7 +562,7 @@ has_open_cmd :: proc() -> (path: string, ok: bool) {
 
 has_local_file :: proc() -> (string, bool) {
     if files, err := filepath.glob(
-        fmt.tprintf("{}\\*.nf", os.get_current_directory(context.temp_allocator)),
+        fmt.tprintf("{}\\*.nf", os.get_working_directory(context.temp_allocator)),
         context.temp_allocator,
     ); err == nil && len(files) == 1 {
         if _, err := nf_check_magic_get_version(files[0]); err != .NONE {

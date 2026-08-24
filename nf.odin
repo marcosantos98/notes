@@ -119,8 +119,8 @@ nf_check_magic_get_version :: proc {
 }
 
 nf_check_magic_get_version_file :: proc(path: string) -> (int, NotesError) {
-    data, ok := os.read_entire_file(path, context.temp_allocator)
-    if ok do return nf_check_magic_get_version_data(data)
+    data, err := os.read_entire_file(path, context.temp_allocator)
+    if err == os.General_Error.None do return nf_check_magic_get_version_data(data)
     return -1, .FILE_NOT_FOUND
 }
 
@@ -136,8 +136,8 @@ nf_check_magic_get_version_data :: proc(data: []byte) -> (int, NotesError) {
 }
 
 nf_load :: proc(path: string) -> (State, NotesError) {
-    data, ok := os.read_entire_file(path, context.temp_allocator)
-    if !ok {
+    data, err := os.read_entire_file(path, context.temp_allocator)
+    if err != os.ERROR_NONE {
         if os.exists(path) do return {}, .FAILED_TO_LOAD
         return state_init(path), .NONE
     }
@@ -178,7 +178,7 @@ nf_save :: proc(s: State) -> NotesError {
         }
     }
 
-    if !os.write_entire_file(s.path, writer.data[:]) do return .FAILED_TO_SAVE
+    if os.write_entire_file(s.path, writer.data[:]) != os.ERROR_NONE do return .FAILED_TO_SAVE
 
     return .NONE
 }
