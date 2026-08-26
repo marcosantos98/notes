@@ -561,6 +561,14 @@ has_open_cmd :: proc() -> (path: string, ok: bool) {
     return
 }
 
+is_init_cmd :: proc() -> (path: string, ok: bool) {
+    if len(os.args) < 2 || os.args[1] != "init" do return
+    dir, err := os.get_working_directory(context.temp_allocator)
+    if err != os.ERROR_NONE do return "", false
+    path = fmt.tprintf("{}/notes.nf", dir)
+    return path, true
+}
+
 has_local_file :: proc() -> (string, bool) {
     wd, wd_err := os.get_working_directory(context.temp_allocator)
     if wd_err != nil do return "", false
@@ -604,11 +612,27 @@ main :: proc() {
 
     nf_path: string
     has_open: bool
+    is_local: bool
     if path, ok := has_open_cmd(); ok {
         nf_path = path
         has_open = ok
     } else if local_path, has_local := has_local_file(); has_local {
         nf_path = local_path
+        is_local = true
+    } else if path, ok = is_init_cmd(); ok {
+        nf_path = path
+        state, err := nf_load(nf_path)
+        if err != .NONE {
+            fmt.printfln("[ERROR]: Failed to load {}: {}", nf_path, msg_from_err(err))
+            os.exit(1)
+        }
+        save_err := nf_save(state)
+        if save_err != .NONE {
+            fmt.printfln("[ERROR]: Failed to save {}: {}", nf_path, msg_from_err(save_err))
+            os.exit(1)
+        }
+        fmt.println("Created new notes files at", nf_path)
+        return
     } else {
         nf_path = nf_create_or_use_appdata_path()
     }
@@ -622,7 +646,11 @@ main :: proc() {
         return
     }
 
-    if !check_lock_file() {
+
+    wd, wderr := os.get_working_directory(context.temp_allocator)
+    if wderr != nil do return
+    lock_path := is_local ? fmt.tprintf("{}/.lock", wd) : ""
+    if !check_lock_file(lock_path) {
         fmt.println("Can't access the notes, someone has it opened.")
         return
     }
@@ -637,11 +665,11 @@ main :: proc() {
             fmt.println("Current working project:", state.current_proj)
         }
         interactive_mode(&state)
-        remove_lock_file()
+        remove_lock_file(lock_path)
         return
     }
 
     execute_commands(&state)
 
-    remove_lock_file()
+    remove_lock_file(lock_path)
 }
