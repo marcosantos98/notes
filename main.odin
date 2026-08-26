@@ -562,10 +562,11 @@ has_open_cmd :: proc() -> (path: string, ok: bool) {
 }
 
 has_local_file :: proc() -> (string, bool) {
-    if files, err := filepath.glob(
-        fmt.tprintf("{}\\*.nf", os.get_working_directory(context.temp_allocator)),
-        context.temp_allocator,
-    ); err == nil && len(files) == 1 {
+    wd, wd_err := os.get_working_directory(context.temp_allocator)
+    if wd_err != nil do return "", false
+    path := fmt.tprintf("{}/*.nf", wd)
+    files, err := filepath.glob(path, context.temp_allocator)
+    if err == nil && len(files) == 1 {
         if _, err := nf_check_magic_get_version(files[0]); err != .NONE {
             fmt.printfln("[Error] Failed checking magic for {}: {}", files[0], msg_from_err(err))
             return "", false
