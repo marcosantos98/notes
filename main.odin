@@ -14,6 +14,7 @@ NOTES_VERSION :: "0.3.1"
 GREEN :: ansi.CSI + ansi.FG_GREEN + ansi.SGR
 CYAN :: ansi.CSI + ansi.FG_CYAN + ansi.SGR
 RED :: ansi.CSI + ansi.FG_RED + ansi.SGR
+YELLOW :: ansi.CSI + ansi.FG_YELLOW + ansi.SGR
 RESET :: ansi.CSI + ansi.RESET + ansi.SGR
 
 s_err :: #force_inline proc() -> string {
@@ -625,7 +626,7 @@ main :: proc() {
         return
     }
 
-    fmt.println("working path:", nf_path)
+    fmt.println(is_local ? YELLOW : "", "working path:", nf_path, RESET)
 
     if len(os.args) == 1 || has_open {
         if len(state.projs) == 0 {
